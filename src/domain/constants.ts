@@ -1,0 +1,5 @@
+export const MAX_PAYLOAD_BYTES = 256 * 1024;
+export const DELIVERY_TIMEOUT_MS = 5_000;
+export const MAX_DELIVERY_ATTEMPTS = 5;
+export const MAX_RETRY_WINDOW_MS = 15 * 60 * 1000;
+export const RESPONSE_BODY_PREVIEW_BYTES = 2_048;

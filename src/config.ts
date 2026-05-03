@@ -1,0 +1,17 @@
+import "dotenv/config";
+import { z } from "zod";
+
+const configSchema = z.object({
+  DATABASE_URL: z
+    .string()
+    .url()
+    .default("postgres://webhooks:webhooks@localhost:5432/webhooks_dev"),
+  PORT: z.coerce.number().int().positive().default(3000),
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1000),
+  WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(10),
+});
+
+export const config = configSchema.parse(process.env);
+
+export const isDevelopment = config.NODE_ENV === "development";
