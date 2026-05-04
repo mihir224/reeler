@@ -1,4 +1,4 @@
-# Reeler Event Delivery Platform MVP
+# Reeler - Event Delivery Platform MVP
 
 API-first webhook infrastructure with durable Postgres ingestion, endpoint fan-out, retry, failed-delivery replay, and HMAC signed webhook delivery.
 
@@ -36,6 +36,18 @@ Start the API and worker in separate terminals:
 ```bash
 npm run dev:api
 npm run dev:worker
+```
+
+Open the interactive API docs:
+
+```text
+http://localhost:3000/docs
+```
+
+Fetch the OpenAPI JSON:
+
+```text
+http://localhost:3000/openapi.json
 ```
 
 ## API
