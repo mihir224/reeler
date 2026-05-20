@@ -1,50 +1,90 @@
-# Reeler - Event Delivery Platform MVP
+# Reeler Platform Server
 
-API-first webhook infrastructure with durable Postgres ingestion, endpoint fan-out, retry, failed-delivery replay, and HMAC signed webhook delivery.
+Fastify + PostgreSQL service that powers Reeler's reliable outbound webhook delivery platform.
+
+This module owns:
+
+- API key authentication
+- App-scoped endpoint registration
+- Durable event ingestion
+- Endpoint fan-out by event type
+- Delivery logs and event inspection APIs
+- Failed delivery replay
+- Swagger/OpenAPI documentation
+- Background worker for asynchronous webhook delivery
 
 ## Stack
 
 - Node.js + TypeScript
-- Fastify API
-- Drizzle schema
-- PostgreSQL as the source of truth
-- DB-polling worker with `FOR UPDATE SKIP LOCKED`
+- Fastify
+- PostgreSQL
+- Drizzle ORM
+- Docker Compose
+- Swagger/OpenAPI
 
-## Local Setup
+## Architecture
 
-Install dependencies:
+```text
+Producer API call
+  -> Fastify API
+  -> PostgreSQL events + deliveries
+  -> Worker polls due deliveries
+  -> Worker sends signed webhook request
+  -> Worker records attempt and final delivery state
+```
+
+PostgreSQL is the source of truth. The worker uses `FOR UPDATE SKIP LOCKED` to safely claim delivery rows, which allows multiple workers to process work concurrently without sending the same delivery twice.
+
+## Setup
+
+From this directory:
 
 ```bash
 npm install
-```
-
-Start Postgres:
-
-```bash
 docker compose up -d
-```
-
-Run migrations and seed a demo app/API key:
-
-```bash
 npm run db:migrate
 npm run db:seed
 ```
 
-Start the API and worker in separate terminals:
+The seed script prints a demo API key:
+
+```text
+API Key: whsec_...
+```
+
+Use that key as:
+
+```http
+Authorization: Bearer <api_key>
+```
+
+## Run
+
+Start the API:
 
 ```bash
 npm run dev:api
+```
+
+Start the worker in another terminal:
+
+```bash
 npm run dev:worker
 ```
 
-Open the interactive API docs:
+API:
+
+```text
+http://localhost:3000
+```
+
+Swagger UI:
 
 ```text
 http://localhost:3000/docs
 ```
 
-Fetch the OpenAPI JSON:
+OpenAPI JSON:
 
 ```text
 http://localhost:3000/openapi.json
@@ -52,11 +92,7 @@ http://localhost:3000/openapi.json
 
 ## API
 
-All `/v1/*` endpoints require:
-
-```http
-Authorization: Bearer <api_key>
-```
+All `/v1/*` endpoints require a bearer API key.
 
 Create an endpoint:
 
@@ -74,6 +110,13 @@ curl -X POST http://localhost:3000/v1/events \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"event_type":"payment_success","payload":{"invoice_id":"inv_123","amount":4999}}'
+```
+
+List deliveries:
+
+```bash
+curl http://localhost:3000/v1/deliveries \
+  -H "Authorization: Bearer $API_KEY"
 ```
 
 Inspect event delivery:
@@ -101,13 +144,15 @@ X-Timestamp: <unix_ts>
 X-Signature: sha256=<hex_digest>
 ```
 
-The signature is:
+Signature format:
 
 ```text
 HMAC_SHA256(endpoint_secret, timestamp + "." + raw_request_body)
 ```
 
-## MVP Delivery Rules
+Consumers should use `X-Event-ID` for deduplication and `X-Signature` for authenticity verification.
+
+## Delivery Rules
 
 - Success: any HTTP `2xx`
 - Retry: timeout, `429`, and `5xx`
@@ -117,3 +162,23 @@ HMAC_SHA256(endpoint_secret, timestamp + "." + raw_request_body)
 - Retry window: 15 minutes
 - DLQ: represented by `deliveries.status = 'failed'`
 - Duplicate ingested events are allowed; consumers deduplicate by `X-Event-ID`
+
+## Scripts
+
+```bash
+npm run dev:api       # start Fastify API
+npm run dev:worker    # start delivery worker
+npm run build         # compile TypeScript
+npm test              # run unit tests
+npm run db:migrate    # apply SQL migrations
+npm run db:seed       # create demo app and API key
+```
+
+## Verify
+
+```bash
+npm run build
+npm test
+npm audit --omit=dev
+```
+

@@ -1,46 +1,39 @@
-# Webhook Relay Console
+# Reeler Console
 
-Next.js demo UI for showcasing the Reliable Event Delivery Platform end to end.
+Next.js console for operating and showcasing the Reeler webhook delivery platform.
 
-The console lets you:
+The console is not the core delivery system. It is a UI layer that talks to the platform API and the dummy receiver so the full workflow can be tested from one place.
 
-- Configure the platform API URL, receiver URL, and API key
-- Register a webhook receiver endpoint
-- Publish a test event
-- Inspect platform delivery rows
-- Replay failed deliveries
-- Inspect events received by the FastAPI receiver
+## Features
+
+- Configure platform API URL, receiver URL, and API key
 - Check platform and receiver health
+- Register webhook endpoints
+- Publish test events
+- Inspect delivery rows and status
+- Replay failed deliveries
+- Inspect events received by the dummy receiver
+- Proxy local service calls through Next.js route handlers to avoid CORS issues
 
-## Related Services
+## Stack
 
-Platform API:
+- Next.js
+- TypeScript
+- Tailwind CSS
+- shadcn-style local components
+- lucide-react icons
 
-```bash
-cd /Users/mihir/dev-mihir/Projects/webhooks-project
-npm run dev:api
-```
+## Setup
 
-Platform worker:
-
-```bash
-cd /Users/mihir/dev-mihir/Projects/webhooks-project
-npm run dev:worker
-```
-
-Receiver:
-
-```bash
-cd /Users/mihir/dev-mihir/Projects/webhook-receiver
-source .venv/bin/activate
-uvicorn main:app --reload --port 4000
-```
-
-## Run The UI
+From this directory:
 
 ```bash
-cd /Users/mihir/dev-mihir/Projects/webhook-demo-ui
 npm install
+```
+
+## Run
+
+```bash
 npm run dev
 ```
 
@@ -50,29 +43,99 @@ Open:
 http://localhost:3001
 ```
 
-## Local Demo Flow
+## Required Services
 
-1. Start Postgres, platform API, platform worker, and receiver.
-2. Paste the platform API key into the console.
-3. Use `http://localhost:4000/webhook` as the endpoint URL for local testing.
-4. Register the endpoint.
-5. Send a `payment_success` event.
-6. Refresh delivery and receiver state.
+Start these from the monorepo root modules:
 
-For public webhook testing, expose the receiver:
+Platform API:
 
 ```bash
-ngrok http 4000
+cd ../server
+npm run dev:api
 ```
 
-Then register:
+Platform worker:
+
+```bash
+cd ../server
+npm run dev:worker
+```
+
+Dummy receiver:
+
+```bash
+cd "../dummy receiver"
+source .venv/bin/activate
+uvicorn main:app --reload --port 4000
+```
+
+## UI Defaults
+
+Use these values for local development:
 
 ```text
-https://<ngrok-domain>/webhook
+Platform API: http://localhost:3000
+Receiver service: http://localhost:4000
+Webhook URL: http://localhost:4000/webhook
+API key: whsec_... from cd ../server && npm run db:seed
 ```
 
-## Why The UI Uses Proxy Routes
+The API key field accepts either:
 
-The browser talks to local Next.js API routes first. Those route handlers forward requests to the platform API and receiver service.
+```text
+whsec_...
+```
 
-This avoids CORS issues while keeping the platform and receiver code focused on their own responsibilities.
+or:
+
+```text
+Bearer whsec_...
+```
+
+The UI normalizes it before forwarding requests.
+
+## How It Works
+
+Browser requests go to local Next.js API routes first:
+
+```text
+/api/platform/[...path]
+/api/receiver/events
+/api/healthcheck
+```
+
+Those route handlers forward requests to:
+
+```text
+http://localhost:3000
+http://localhost:4000
+```
+
+This keeps the platform and receiver services free from demo-specific CORS configuration.
+
+## Demo Flow
+
+1. Start the platform API, worker, receiver, and console.
+2. Paste the seeded API key.
+3. Click **Check** to verify both services are reachable.
+4. Register `http://localhost:4000/webhook` for `payment_success`.
+5. Send a `payment_success` event.
+6. Refresh and inspect the delivery ledger and receiver inbox.
+7. Stop the receiver to force retries/failure.
+8. Restart the receiver and replay a failed delivery.
+
+## Scripts
+
+```bash
+npm run dev      # start Next.js on port 3001
+npm run build    # production build
+npm run start    # start production server on port 3001
+```
+
+## Verify
+
+```bash
+npm run build
+npm audit --omit=dev
+```
+
