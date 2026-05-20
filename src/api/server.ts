@@ -3,6 +3,8 @@ import Fastify from "fastify";
 import { config } from "../config.js";
 import { closeDb } from "../db/client.js";
 import { registerRoutes } from "./routes.js";
+import { healthSchema } from "./schemas.js";
+import { registerSwagger } from "./swagger.js";
 
 export async function buildServer() {
   const app = Fastify({
@@ -11,9 +13,10 @@ export async function buildServer() {
   });
 
   await app.register(sensible);
+  await registerSwagger(app);
   await registerRoutes(app);
 
-  app.get("/health", async () => ({ ok: true }));
+  app.get("/health", { schema: healthSchema }, async () => ({ ok: true }));
 
   return app;
 }

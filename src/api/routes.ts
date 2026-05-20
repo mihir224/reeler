@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { db } from "../db/client.js";
 import {
@@ -17,6 +17,13 @@ import {
 } from "../domain/validation.js";
 import { canReplayDelivery } from "../domain/replay.js";
 import { requireAuth } from "./auth.js";
+import {
+  createEndpointRouteSchema,
+  createEventRouteSchema,
+  getEventRouteSchema,
+  listDeliveriesRouteSchema,
+  replayDeliveryRouteSchema,
+} from "./schemas.js";
 
 const allowedDeliveryStatus = ["failed", "pending", "delivered"] as const;
 
@@ -24,7 +31,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
   await app.register(async (authed) => {
     authed.addHook("preHandler", requireAuth);
 
-    authed.post("/v1/events", async (request, reply) => {
+    authed.post("/v1/events", { schema: createEventRouteSchema }, async (request, reply) => {
     const parsed = createEventSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: "Invalid request body", details: parsed.error.flatten() });
@@ -55,11 +62,16 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
             eq(endpoints.isActive, true),
             sql`${endpoints.eventTypes} @> ARRAY[${parsed.data.event_type}]::text[]`,
           ),
-        );
+        )
+        .orderBy(desc(endpoints.createdAt));
 
-      if (matchingEndpoints.length > 0) {
+      const uniqueMatchingEndpoints = Array.from(
+        new Map(matchingEndpoints.map((endpoint) => [endpoint.url, endpoint])).values(),
+      );
+
+      if (uniqueMatchingEndpoints.length > 0) {
         await tx.insert(deliveries).values(
-          matchingEndpoints.map((endpoint) => ({
+          uniqueMatchingEndpoints.map((endpoint) => ({
             eventId: createdEvent.id,
             endpointId: endpoint.id,
           })),
@@ -68,7 +80,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
       return {
         eventId: createdEvent.id,
-        deliveryCount: matchingEndpoints.length,
+        deliveryCount: uniqueMatchingEndpoints.length,
       };
     });
 
@@ -78,7 +90,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     });
     });
 
-    authed.post("/v1/endpoints", async (request, reply) => {
+    authed.post("/v1/endpoints", { schema: createEndpointRouteSchema }, async (request, reply) => {
     const parsed = createEndpointSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: "Invalid request body", details: parsed.error.flatten() });
@@ -90,26 +102,69 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const [endpoint] = await db
-      .insert(endpoints)
-      .values({
-        appId: request.auth.appId,
-        url: parsed.data.url,
-        eventTypes: [...new Set(parsed.data.event_types)],
-        secret: generateEndpointSecret(),
-      })
-      .returning();
+    const requestedEventTypes = [...new Set(parsed.data.event_types)];
+    const { endpoint, created } = await db.transaction(async (tx) => {
+      const [existingEndpoint] = await tx
+        .select()
+        .from(endpoints)
+        .where(and(eq(endpoints.appId, request.auth.appId), eq(endpoints.url, parsed.data.url)))
+        .orderBy(desc(endpoints.createdAt))
+        .limit(1);
 
-    return reply.code(201).send({
+      if (existingEndpoint) {
+        const mergedEventTypes = [...new Set([...existingEndpoint.eventTypes, ...requestedEventTypes])];
+        const [updatedEndpoint] = await tx
+          .update(endpoints)
+          .set({
+            eventTypes: mergedEventTypes,
+            isActive: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(endpoints.id, existingEndpoint.id))
+          .returning();
+
+        await tx
+          .update(endpoints)
+          .set({
+            isActive: false,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(endpoints.appId, request.auth.appId),
+              eq(endpoints.url, parsed.data.url),
+              ne(endpoints.id, existingEndpoint.id),
+            ),
+          );
+
+        return { endpoint: updatedEndpoint, created: false };
+      }
+
+      const [createdEndpoint] = await tx
+        .insert(endpoints)
+        .values({
+          appId: request.auth.appId,
+          url: parsed.data.url,
+          eventTypes: requestedEventTypes,
+          secret: generateEndpointSecret(),
+        })
+        .returning();
+
+      return { endpoint: createdEndpoint, created: true };
+    });
+
+    return reply.code(created ? 201 : 200).send({
       id: endpoint.id,
       url: endpoint.url,
       event_types: endpoint.eventTypes,
       is_active: endpoint.isActive,
       created_at: endpoint.createdAt,
+      updated_at: endpoint.updatedAt,
+      already_existed: !created,
     });
     });
 
-    authed.get("/v1/events/:event_id", async (request, reply) => {
+    authed.get("/v1/events/:event_id", { schema: getEventRouteSchema }, async (request, reply) => {
     const { event_id: eventId } = request.params as { event_id: string };
     const [event] = await db
       .select()
@@ -172,7 +227,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     });
     });
 
-    authed.get("/v1/deliveries", async (request, reply) => {
+    authed.get("/v1/deliveries", { schema: listDeliveriesRouteSchema }, async (request, reply) => {
     const query = request.query as { status?: string };
     if (query.status && !allowedDeliveryStatus.includes(query.status as (typeof allowedDeliveryStatus)[number])) {
       return reply.code(400).send({ error: "Invalid status filter" });
@@ -212,7 +267,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
     });
     });
 
-    authed.post("/v1/deliveries/:delivery_id/replay", async (request, reply) => {
+    authed.post(
+      "/v1/deliveries/:delivery_id/replay",
+      { schema: replayDeliveryRouteSchema },
+      async (request, reply) => {
     const { delivery_id: deliveryId } = request.params as { delivery_id: string };
 
     const result = await db.transaction(async (tx) => {
@@ -249,7 +307,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
       });
 
       return { kind: "replayed" as const, delivery: updated };
-    });
+      },
+    );
 
     if (result.kind === "not_found") return reply.code(404).send({ error: "Delivery not found" });
     if (result.kind === "not_failed") {

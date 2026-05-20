@@ -12,10 +12,13 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
+    "db:dedupe-endpoints": "tsx src/db/dedupe-endpoints.ts",
     "test": "node --import tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@fastify/sensible": "^6.0.3",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.6",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.2.1",
