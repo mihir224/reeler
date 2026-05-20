@@ -4,3 +4,11 @@ dist
 .DS_Store
 coverage
 postgres_data
+server/node_modules
+ui/node_modules
+server/venv
+server/.venv
+ui/venv
+ui/.venv
+dummy receiver/venv
+dummy receiver/.venv
