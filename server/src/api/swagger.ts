@@ -28,6 +28,8 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
       },
       tags: [
         { name: "Health", description: "Service health checks" },
+        { name: "Auth", description: "User authentication" },
+        { name: "Dashboard", description: "User dashboard APIs" },
         { name: "Endpoints", description: "Webhook endpoint registration" },
         { name: "Events", description: "Event ingestion and inspection" },
         { name: "Deliveries", description: "Delivery logs and replay" },

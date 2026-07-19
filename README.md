@@ -27,6 +27,10 @@ The core platform is built around a simple reliability contract:
 - DLQ-style failed delivery state
 - Manual replay for failed deliveries
 - API key authentication
+- User session authentication for dashboard APIs
+- App ownership and onboarding/dashboard APIs
+- Explicit per-app event catalog
+- Show-once API keys and endpoint signing secrets
 - HMAC-signed webhook delivery
 - Swagger/OpenAPI documentation
 - Next.js console for end-to-end operation and inspection
@@ -64,7 +68,7 @@ The core platform is built around a simple reliability contract:
 | Platform Worker | `server/` | none | Polls due delivery rows and sends webhooks |
 | PostgreSQL | `server/docker-compose.yml` | `5432` | Stores apps, API keys, endpoints, events, deliveries, attempts, and replay audits |
 | Receiver | `dummy receiver/` | `4000` | Receives webhook requests and optionally verifies signatures |
-| Console | `ui/` | `3001` | UI for registering endpoints, publishing events, viewing deliveries, and replaying failures |
+| Console | `ui/` | `3001` | Product UI with signup, onboarding, dashboard, and demo console |
 
 ## Local Development
 
@@ -160,6 +164,17 @@ Open:
 http://localhost:3001
 ```
 
+Product routes:
+
+```text
+/                 Landing page
+/signup           Create account
+/login            Log in
+/onboarding/*     First-time setup wizard
+/dashboard/*      App operations dashboard
+/demo-console     API-key based test console
+```
+
 Default local values:
 
 ```text
@@ -168,6 +183,52 @@ Receiver service: http://localhost:4000
 Webhook URL: http://localhost:4000/webhook
 API key: whsec_... from npm run db:seed
 ```
+
+## Auth And Dashboard
+
+Reeler now has two auth layers:
+
+- **Machine APIs** (`/v1/*`): API key bearer auth for event ingestion and delivery inspection
+- **Product APIs** (`/auth/*`, `/dashboard/*`): session cookie auth for signup, onboarding, and dashboard operations
+
+### Environment variables (server)
+
+```text
+SESSION_SECRET=change-me-in-production
+SESSION_COOKIE_NAME=reeler_session
+SESSION_TTL_DAYS=30
+```
+
+### Auth APIs
+
+```http
+POST /auth/signup
+POST /auth/login
+POST /auth/logout
+GET  /auth/me
+```
+
+### Dashboard APIs
+
+```http
+GET/POST  /dashboard/apps
+GET/POST  /dashboard/apps/:app_id/events
+GET/POST  /dashboard/apps/:app_id/endpoints
+GET/POST  /dashboard/apps/:app_id/api-keys
+POST      /dashboard/apps/:app_id/api-keys/:key_id/revoke
+GET       /dashboard/apps/:app_id/deliveries
+POST      /dashboard/deliveries/:delivery_id/replay
+```
+
+API keys and endpoint signing secrets are returned **once** at creation. Later list endpoints return metadata only.
+
+### Event catalog
+
+Owned apps can register explicit event types in the catalog. When a catalog has entries, `/v1/events` rejects unknown `event_type` values for that app. Seeded demo apps with no catalog entries remain backward compatible.
+
+### Backward compatibility
+
+Apps created by `npm run db:seed` have no `owner_user_id`. They remain accessible via API key but do not appear in the dashboard.
 
 ## API Overview
 

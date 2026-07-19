@@ -5,6 +5,9 @@ Fastify + PostgreSQL service that powers Reeler's reliable outbound webhook deli
 This module owns:
 
 - API key authentication
+- User session authentication
+- Dashboard and auth APIs
+- App ownership and event catalog
 - App-scoped endpoint registration
 - Durable event ingestion
 - Endpoint fan-out by event type
@@ -90,6 +93,39 @@ OpenAPI JSON:
 http://localhost:3000/openapi.json
 ```
 
+## Auth And Dashboard APIs
+
+Environment variables:
+
+```text
+SESSION_SECRET=change-me-in-production
+SESSION_COOKIE_NAME=reeler_session
+SESSION_TTL_DAYS=30
+```
+
+Session auth routes:
+
+```http
+POST /auth/signup
+POST /auth/login
+POST /auth/logout
+GET  /auth/me
+```
+
+Dashboard routes (session cookie required):
+
+```http
+GET/POST  /dashboard/apps
+GET/POST  /dashboard/apps/:app_id/events
+GET/POST  /dashboard/apps/:app_id/endpoints
+GET/POST  /dashboard/apps/:app_id/api-keys
+POST      /dashboard/apps/:app_id/api-keys/:key_id/revoke
+GET       /dashboard/apps/:app_id/deliveries
+POST      /dashboard/deliveries/:delivery_id/replay
+```
+
+Integration tests live in `tests/auth.test.ts`, `tests/dashboard.test.ts`, and `tests/backward-compat.test.ts`. They require PostgreSQL and are skipped automatically when the database is unavailable.
+
 ## API
 
 All `/v1/*` endpoints require a bearer API key.
@@ -169,7 +205,7 @@ Consumers should use `X-Event-ID` for deduplication and `X-Signature` for authen
 npm run dev:api       # start Fastify API
 npm run dev:worker    # start delivery worker
 npm run build         # compile TypeScript
-npm test              # run unit tests
+npm test              # run unit + integration tests (integration skipped if DB unavailable)
 npm run db:migrate    # apply SQL migrations
 npm run db:seed       # create demo app and API key
 ```

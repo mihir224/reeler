@@ -302,3 +302,221 @@ export const replayDeliveryRouteSchema = {
     409: errorResponse,
   },
 } as const;
+
+const userResponse = {
+  type: "object",
+  properties: {
+    id: { type: "string", format: "uuid" },
+    email: { type: "string", format: "email" },
+    name: { type: "string" },
+    created_at: { type: "string", format: "date-time" },
+    updated_at: { type: "string", format: "date-time" },
+  },
+  required: ["id", "email", "name", "created_at", "updated_at"],
+} as const;
+
+export const signupRouteSchema = {
+  tags: ["Auth"],
+  summary: "Create a new user account",
+  body: {
+    type: "object",
+    properties: {
+      name: { type: "string", minLength: 1, maxLength: 128 },
+      email: { type: "string", format: "email" },
+      password: { type: "string", minLength: 8, maxLength: 128 },
+    },
+    required: ["name", "email", "password"],
+  },
+  response: {
+    201: {
+      type: "object",
+      properties: { user: userResponse },
+      required: ["user"],
+    },
+    400: errorResponse,
+    409: errorResponse,
+  },
+} as const;
+
+export const loginRouteSchema = {
+  tags: ["Auth"],
+  summary: "Log in with email and password",
+  body: {
+    type: "object",
+    properties: {
+      email: { type: "string", format: "email" },
+      password: { type: "string", minLength: 1 },
+    },
+    required: ["email", "password"],
+  },
+  response: {
+    200: {
+      type: "object",
+      properties: { user: userResponse },
+      required: ["user"],
+    },
+    400: errorResponse,
+    401: errorResponse,
+  },
+} as const;
+
+export const logoutRouteSchema = {
+  tags: ["Auth"],
+  summary: "Log out and clear session",
+  response: {
+    200: {
+      type: "object",
+      properties: { ok: { type: "boolean" } },
+      required: ["ok"],
+    },
+  },
+} as const;
+
+export const meRouteSchema = {
+  tags: ["Auth"],
+  summary: "Get current user",
+  response: {
+    200: {
+      type: "object",
+      properties: { user: userResponse },
+      required: ["user"],
+    },
+    401: errorResponse,
+  },
+} as const;
+
+const appParam = uuidParam("app_id");
+
+export const listDashboardAppsRouteSchema = {
+  tags: ["Dashboard"],
+  summary: "List owned apps",
+  response: {
+    200: {
+      type: "object",
+      properties: {
+        apps: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              name: { type: "string" },
+              created_at: { type: "string", format: "date-time" },
+            },
+            required: ["id", "name", "created_at"],
+          },
+        },
+      },
+      required: ["apps"],
+    },
+    401: errorResponse,
+  },
+} as const;
+
+export const createDashboardAppRouteSchema = {
+  tags: ["Dashboard"],
+  summary: "Create an app",
+  body: {
+    type: "object",
+    properties: { name: { type: "string", minLength: 1, maxLength: 128 } },
+    required: ["name"],
+  },
+  response: {
+    201: {
+      type: "object",
+      properties: {
+        id: { type: "string", format: "uuid" },
+        name: { type: "string" },
+        created_at: { type: "string", format: "date-time" },
+      },
+      required: ["id", "name", "created_at"],
+    },
+    400: errorResponse,
+    401: errorResponse,
+  },
+} as const;
+
+export const listDashboardCatalogEventsRouteSchema = {
+  tags: ["Dashboard"],
+  summary: "List event catalog entries",
+  params: appParam,
+  response: { 200: { type: "object" }, 401: errorResponse, 404: errorResponse },
+} as const;
+
+export const createDashboardCatalogEventRouteSchema = {
+  tags: ["Dashboard"],
+  summary: "Register an event type in the catalog",
+  params: appParam,
+  body: {
+    type: "object",
+    properties: {
+      name: { type: "string", minLength: 1, maxLength: 128 },
+      description: { type: "string", maxLength: 512 },
+    },
+    required: ["name"],
+  },
+  response: { 201: { type: "object" }, 400: errorResponse, 401: errorResponse, 404: errorResponse, 409: errorResponse },
+} as const;
+
+export const listDashboardEndpointsRouteSchema = {
+  tags: ["Dashboard"],
+  summary: "List webhook endpoints",
+  params: appParam,
+  response: { 200: { type: "object" }, 401: errorResponse, 404: errorResponse },
+} as const;
+
+export const createDashboardEndpointRouteSchema = {
+  tags: ["Dashboard"],
+  summary: "Register a webhook endpoint (signing secret shown once on create)",
+  params: appParam,
+  body: createEndpointRouteSchema.body,
+  response: { 200: { type: "object" }, 201: { type: "object" }, 400: errorResponse, 401: errorResponse, 404: errorResponse },
+} as const;
+
+export const listDashboardApiKeysRouteSchema = {
+  tags: ["Dashboard"],
+  summary: "List API keys (metadata only)",
+  params: appParam,
+  response: { 200: { type: "object" }, 401: errorResponse, 404: errorResponse },
+} as const;
+
+export const createDashboardApiKeyRouteSchema = {
+  tags: ["Dashboard"],
+  summary: "Create an API key (raw key shown once)",
+  params: appParam,
+  body: {
+    type: "object",
+    properties: { label: { type: "string", minLength: 1, maxLength: 128 } },
+    required: ["label"],
+  },
+  response: { 201: { type: "object" }, 400: errorResponse, 401: errorResponse, 404: errorResponse },
+} as const;
+
+export const revokeDashboardApiKeyRouteSchema = {
+  tags: ["Dashboard"],
+  summary: "Revoke an API key",
+  params: {
+    type: "object",
+    properties: {
+      app_id: { type: "string", format: "uuid" },
+      key_id: { type: "string", format: "uuid" },
+    },
+    required: ["app_id", "key_id"],
+  },
+  response: { 200: { type: "object" }, 401: errorResponse, 404: errorResponse },
+} as const;
+
+export const listDashboardDeliveriesRouteSchema = {
+  tags: ["Dashboard"],
+  summary: "List deliveries for an app",
+  params: appParam,
+  querystring: listDeliveriesRouteSchema.querystring,
+  response: { 200: listDeliveriesRouteSchema.response[200], 400: errorResponse, 401: errorResponse, 404: errorResponse },
+} as const;
+
+export const replayDashboardDeliveryRouteSchema = {
+  tags: ["Dashboard"],
+  summary: "Replay a failed delivery",
+  params: uuidParam("delivery_id"),
+  response: replayDeliveryRouteSchema.response,
+} as const;

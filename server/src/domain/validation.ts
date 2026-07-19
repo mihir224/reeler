@@ -12,6 +12,30 @@ export const createEndpointSchema = z.object({
   event_types: z.array(z.string().min(1).max(128)).min(1).max(100),
 });
 
+export const signupSchema = z.object({
+  name: z.string().min(1).max(128),
+  email: z.string().email().max(255),
+  password: z.string().min(8).max(128),
+});
+
+export const loginSchema = z.object({
+  email: z.string().email().max(255),
+  password: z.string().min(1).max(128),
+});
+
+export const createAppSchema = z.object({
+  name: z.string().min(1).max(128),
+});
+
+export const createCatalogEventSchema = z.object({
+  name: z.string().min(1).max(128).regex(/^[a-z][a-z0-9_]*$/, "Use lowercase snake_case"),
+  description: z.string().max(512).optional().default(""),
+});
+
+export const createApiKeySchema = z.object({
+  label: z.string().min(1).max(128),
+});
+
 export function payloadSizeBytes(payload: unknown): number {
   return Buffer.byteLength(JSON.stringify(payload), "utf8");
 }
