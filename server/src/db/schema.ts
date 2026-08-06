@@ -31,8 +31,20 @@ export const attemptStatus = pgEnum("attempt_status", [
   "failed",
 ]);
 
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const apps = pgTable("apps", {
   id: uuid("id").primaryKey().defaultRandom(),
+  ownerUserId: uuid("owner_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -70,6 +82,23 @@ export const endpoints = pgTable(
   },
   (table) => ({
     eventTypesIdx: index("endpoints_app_id_event_types_idx").using("gin", table.eventTypes),
+  }),
+);
+
+export const eventCatalog = pgTable(
+  "event_catalog",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    appId: uuid("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    appNameIdx: index("event_catalog_app_id_name_idx").on(table.appId, table.name),
   }),
 );
 

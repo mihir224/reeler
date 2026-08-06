@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Webhook Relay Console",
-  description: "Demo console for testing reliable webhook delivery end to end.",
+  title: "Reeler",
+  description: "Onboarding and operations UI for reliable event delivery.",
 };
 
 export default function RootLayout({
