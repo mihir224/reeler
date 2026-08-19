@@ -9,26 +9,45 @@ const errorResponse = {
 const endpointResponse = {
   type: "object",
   properties: {
-    id: { type: "string", format: "uuid" },
-    url: { type: "string", format: "uri" },
-    event_types: {
-      type: "array",
-      items: { type: "string" },
+    endpoint: {
+      type: "object",
+      properties: {
+        id: { type: "string", format: "uuid" },
+        url: { type: "string", format: "uri" },
+        event_types: {
+          type: "array",
+          items: { type: "string" },
+        },
+        is_active: { type: "boolean" },
+        created_at: { type: "string", format: "date-time" },
+        updated_at: { type: "string", format: "date-time" },
+      },
+      required: ["id", "url", "event_types", "is_active", "created_at", "updated_at"],
     },
-    is_active: { type: "boolean" },
-    created_at: { type: "string", format: "date-time" },
-    updated_at: { type: "string", format: "date-time" },
-    already_existed: { type: "boolean" },
+    verification: {
+      anyOf: [
+        {
+          type: "object",
+          properties: {
+            scheme: { type: "string", enum: ["hmac_sha256"] },
+            signing_secret: { type: "string" },
+            signature_header: { type: "string" },
+            timestamp_header: { type: "string" },
+            event_id_header: { type: "string" },
+          },
+          required: [
+            "scheme",
+            "signing_secret",
+            "signature_header",
+            "timestamp_header",
+            "event_id_header",
+          ],
+        },
+        { type: "null" },
+      ],
+    },
   },
-  required: [
-    "id",
-    "url",
-    "event_types",
-    "is_active",
-    "created_at",
-    "updated_at",
-    "already_existed",
-  ],
+  required: ["endpoint", "verification"],
 } as const;
 
 const uuidParam = (name: string) =>

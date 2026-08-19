@@ -4,8 +4,18 @@ CREATE TYPE event_status AS ENUM ('accepted', 'partially_delivered', 'delivered'
 CREATE TYPE delivery_status AS ENUM ('pending', 'in_progress', 'delivered', 'retry_scheduled', 'failed');
 CREATE TYPE attempt_status AS ENUM ('succeeded', 'retry_scheduled', 'failed');
 
+CREATE TABLE users (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email text NOT NULL UNIQUE,
+  password_hash text NOT NULL,
+  name text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE apps (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -26,6 +36,15 @@ CREATE TABLE endpoints (
   secret text NOT NULL,
   event_types text[] NOT NULL,
   is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE event_catalog (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  app_id uuid NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  description text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -77,6 +96,7 @@ CREATE TABLE replay_audits (
 
 CREATE INDEX api_keys_key_hash_idx ON api_keys(key_hash);
 CREATE INDEX endpoints_app_id_event_types_idx ON endpoints USING gin(event_types);
+CREATE INDEX event_catalog_app_id_name_idx ON event_catalog(app_id, name);
 CREATE INDEX events_app_id_created_at_idx ON events(app_id, created_at DESC);
 CREATE INDEX deliveries_due_idx ON deliveries(status, next_retry_at, created_at);
 CREATE INDEX deliveries_event_id_idx ON deliveries(event_id);
